@@ -1,25 +1,122 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Reproducible Research Project 1"
+output: html_document
 ---
 
+This is an R Markdown document for Project 1 of course Reproducible Research.
 
-## Loading and preprocessing the data
+## 1. Loading and preprocessing the data
+#### 1.1 Load the data
+```{r echo = TRUE}
+data <- read.csv("activity.csv", header = TRUE)
+```
+
+#### 1.2. Process/transform the data (if necessary) into a format suitable analysis
+First, we need to test the type of data for steps, date and interval. 
+```{r echo = TRUE}
+class(data$steps)
+class(data$date)
+class(data$interval)
+```
+Apparently, the data type for date is not correct. But for now we do not need to change anything as we will deal with NA value and change data type later in Part 5.
+
+For interval, it should not be integer as it helps us identify each 5-minute interval. Thus it should have a data type of factor. 
+```{r echo}
+data$interval <- as.factor(data$interval)
+```
 
 
+## 2. What is mean total number of steps taken per day?
+#### 2.1 Calculate the total number of steps taken per day
+```{r echo = TRUE}
+tapply(data$steps, data$date, sum, na.rm = TRUE)
+```
 
-## What is mean total number of steps taken per day?
+#### 2.2 Histogram
+```{r echo = TRUE}
+hist_data <- tapply(data$steps, data$date, sum, na.rm = TRUE)
+hist(hist_data, breaks = 19, col = "green", xlab = "Total number of steps", ylab = "Number of days", main = "The total number of steps taken each day")
+```
 
+#### 2.3 The mean and median of the total number of steps taken per day
+```{r echo = TRUE}
+mean(hist_data)
+median(hist_data)
+```
 
+## 3. What is the average daily activity pattern?
+#### 3.1. Make a time series plot
+```{r echo = TRUE}
+time_data <- tapply(data$steps, data$interval, mean, na.rm = TRUE)
+plot(time_data, type = "l", xlab = "intervals", ylab = "average steps", main ="Average number of steps taken in each interval", col = "green")
+```
 
-## What is the average daily activity pattern?
+#### 3.2. Which 5-minute interval contains the maximum number of steps?
+```{r echo = TRUE}
+for (i in 1:length(time_data)) {
+  if (time_data[i] == max(time_data)) {
+    print(time_data[i])
+  }
+}
+```
 
+The 5-minute interval labeled as "835" (which refers to 8:35), on average across all the days in the dataset, contains the maximum number of steps, which is 206.1698.
 
+## 4. Imputing missing values
+#### 4.1. Total number of missing values
+```{r echo = TRUE}
+sum(is.na(data$steps))
+```
+There are `r sum(is.na(data$steps))` missing values.
 
-## Imputing missing values
+#### 4.2. Strategy
+My decision is to populate the NA rows with the mean for that 5-minute interval.
 
+#### 4.3. New table
+```{r echo = TRUE}
+new_data <- data
+for (i in 1:length(new_data$steps)) {
+  if (is.na(new_data$steps[i])) {
+    average <- mean(new_data$steps[new_data$interval == new_data$interval[i]], na.rm = TRUE)
+    new_data$steps[i] <- average
+  }
+}
+```
 
+#### 4.4 New histogram
+```{r echo = TRUE}
+new_hist_data <- tapply(new_data$steps, new_data$date, sum)
+hist(new_hist_data, breaks = 19, col = "green", xlab = "Total number of steps", ylab = "Number of days", main = "The total number of steps taken each day")
+mean(new_hist_data)
+median(new_hist_data)
+```
 
-## Are there differences in activity patterns between weekdays and weekends?
+These values differ from the estimates from the first part of the assignment. Imputing missing data increased the estimates of the total daily number of steps. The mean and median both increased and they are the same.
+
+## 5. Are there differences in activity patterns between weekdays and weekends?
+#### 5.1 New factor variable
+```{r echo = TRUE}
+new_data$date <- as.POSIXlt(as.character(new_data$date), format="%Y-%m-%d")
+library(timeDate)
+new_data$day = NA
+for (i in 1:length(new_data$date)) {
+  if (isWeekday(new_data$date[i])) {
+    new_data$day[i] <- "Weekday"
+  }
+  else {
+    new_data$day[i] <- "Weekend"
+  }
+}
+new_data$day <- as.factor(new_data$day)
+```
+
+#### 5.2 Plotting
+```{r, echo = TRUE, fig.height=10}
+par(mfrow=c(2,1))
+weekday_time_data <- tapply(new_data$steps[new_data$day == "Weekday"], data$interval[new_data$day == "Weekday"], mean)
+plot(weekday_time_data, type = "l", xlab = "intervals", ylab = "average steps", main ="Average number of steps taken in each interval for weekday", col = "green")
+
+weekend_time_data <- tapply(new_data$steps[new_data$day == "Weekend"], data$interval[new_data$day == "Weekend"], mean)
+plot(weekend_time_data, type = "l", xlab = "intervals", ylab = "average steps", main ="Average number of steps taken in each interval for weekend", col = "blue")
+```
+
